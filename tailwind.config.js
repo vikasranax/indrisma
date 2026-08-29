@@ -8,23 +8,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink:    '#e9eef3',
-        sub:    '#8a97a6',
-        muted:  '#4a5568',
-        accent: '#34e1d6',
-        canvas: '#05070a',
-        panel:  '#0a0d12',
+        ink: '#f5f6f8',
+        sub: '#9aa1ac',
+        muted: '#5a6270',
+        faint: '#343a44',
+        accent: '#f2b84b',
+        'accent-ink': '#241704',
+        canvas: '#07080a',
       },
       fontFamily: {
-        sans:   ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        serif:  ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
-        mono:   ['IBM Plex Mono', 'ui-monospace', 'monospace'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Space Grotesk', 'ui-sans-serif', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
-        'glow': '0 0 40px -5px rgba(52, 225, 214, 0.15)',
-      },
-      animation: {
-        'breathe': 'breathe 3.2s ease-in-out infinite',
+        glow: '0 0 36px -6px rgba(242, 184, 75, 0.35)',
+        dock: '0 14px 40px -14px rgba(0, 0, 0, 0.6)',
       },
     },
   },

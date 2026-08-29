@@ -3,80 +3,111 @@
 @tailwind utilities;
 
 :root {
-  --ink: #e9eef3;
-  --sub: #8a97a6;
-  --muted: #4a5568;
-  --accent: #34e1d6;
-  --canvas: #05070a;
-  --panel: rgba(10, 13, 18, 0.6);
-  --panel-strong: rgba(10, 13, 18, 0.85);
-  --line: rgba(255, 255, 255, 0.06);
+  --ink: #f5f6f8;
+  --sub: #9aa1ac;
+  --muted: #5a6270;
+  --faint: #343a44;
+  --accent: #f2b84b;
+  --accent-ink: #241704;
+  --canvas: #07080a;
+  --surface: rgba(15, 16, 19, 0.5);
+  --surface-strong: rgba(11, 12, 15, 0.86);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
 }
 
 html, body {
-  background: #030405;
+  background: #050506;
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
 }
 
-/* ===== Scrollbar (thin, minimal) ===== */
+@layer components {
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .glass-strong {
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+  }
+  .icon-btn {
+    @apply grid place-items-center rounded-full border transition;
+    color: var(--sub);
+    border-color: var(--border);
+    background: rgba(0, 0, 0, 0.28);
+  }
+  .icon-btn:hover { color: var(--ink); border-color: var(--border-strong); }
+  .icon-btn.is-active { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+  .field {
+    @apply w-full rounded-xl px-3.5 py-2.5 text-[13px] transition;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid var(--border);
+    color: var(--ink);
+  }
+  .field::placeholder { color: var(--muted); }
+  .field:focus { outline: none; border-color: rgba(242, 184, 75, 0.45); background: rgba(255, 255, 255, 0.07); }
+  .btn-accent {
+    @apply rounded-xl py-2.5 text-[13px] font-semibold transition;
+    background: var(--accent); color: var(--accent-ink);
+  }
+  .btn-accent:hover { filter: brightness(1.08); }
+  .btn-ghost {
+    @apply rounded-xl py-2.5 text-[13px] transition;
+    border: 1px solid var(--border-strong); color: var(--sub);
+  }
+  .btn-ghost:hover { color: var(--ink); border-color: rgba(242, 184, 75, 0.4); }
+  .pill {
+    @apply rounded-full px-3.5 py-2 text-[10.5px] uppercase tracking-[0.07em] transition;
+    color: var(--muted); border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03);
+  }
+  .pill:hover { color: var(--sub); border-color: var(--border-strong); }
+  .pill.is-active { color: var(--accent); border-color: rgba(242, 184, 75, 0.4); background: rgba(242, 184, 75, 0.12); }
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.16); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
 
-/* ===== Grain overlay (subtle noise) ===== */
-.grain::before {
-  content: '';
-  position: absolute; inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
   mix-blend-mode: overlay;
-  pointer-events: none;
-  opacity: 0.5;
 }
 
-/* ===== Animations ===== */
-@keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50%       { transform: scale(1.8); opacity: 1; }
-}
-.animate-breathe { animation: breathe 3.2s ease-in-out infinite; }
+@keyframes riseIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.animate-rise { animation: riseIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-@keyframes spin-slow { to { transform: rotate(360deg); } }
-.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+@keyframes pulseDot { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.6); } }
+.animate-pulse-dot { animation: pulseDot 2.6s ease-in-out infinite; }
 
-@keyframes pump {
-  0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.14); }
-}
-.animate-pump { animation: pump 0.5s ease-in-out infinite; }
+@keyframes horizonDrift { 0% { transform: translateX(0); } 50% { transform: translateX(-3%); } 100% { transform: translateX(0); } }
+.horizon-line { animation: horizonDrift 22s ease-in-out infinite; }
 
-/* ===== Typography helpers ===== */
-.font-display {
-  font-family: 'Fraunces', serif;
-  font-weight: 300;
-  letter-spacing: 0.13em;
-}
-.font-mono { font-family: 'IBM Plex Mono', monospace; }
-.uppercase-tight {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
+@keyframes fallStreak { to { transform: translateY(120vh); } }
+@keyframes driftUp { 0%, 100% { opacity: 0.2; transform: translateY(0); } 50% { opacity: 0.9; transform: translateY(-16px); } }
 
-/* ===== Range input (seek / volume) ===== */
 input[type="range"].seek {
   -webkit-appearance: none; appearance: none;
-  height: 2px; background: rgba(255,255,255,.15); border-radius: 1px;
+  height: 3px; background: rgba(255, 255, 255, 0.16); border-radius: 2px;
 }
 input[type="range"].seek::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 10px; height: 10px; border-radius: 50%;
   background: var(--accent); cursor: pointer;
-  box-shadow: 0 0 8px rgba(52, 225, 214, 0.5);
+  box-shadow: 0 0 10px rgba(242, 184, 75, 0.55);
 }
 input[type="range"].seek::-moz-range-thumb {
   width: 10px; height: 10px; border: 0; border-radius: 50%;
   background: var(--accent); cursor: pointer;
 }
+
+.font-display { font-family: 'Space Grotesk', sans-serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }

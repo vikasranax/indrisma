@@ -15,7 +15,7 @@ export default function Toast() {
 
   if (!visible) return null;
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-full bg-panel border border-white/[0.08] backdrop-blur-xl text-[11px] uppercase tracking-[0.08em] text-sub">
+    <div className="animate-rise fixed top-6 left-1/2 z-[70] -translate-x-1/2 rounded-full glass-strong px-4 py-2 text-[11px] text-sub shadow-dock">
       {msg}
     </div>
   );

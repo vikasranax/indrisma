@@ -16,7 +16,10 @@ export default function Page() {
 
   useEffect(() => {
     youtubeManager.init().then(() => {
-      youtubeManager.playChannel('bollywood');
+      // Not a real click — browsers block unmuted autoplay here, so this keeps
+      // the muted-then-arm-on-first-gesture fallback. Every real click elsewhere
+      // (ChannelBar, PasteUrl) plays unmuted immediately in one click.
+      youtubeManager.playChannel('radio', { gesture: false });
     });
     const { syncKey, pullFromCloud } = useStore.getState();
     if (syncKey) pullFromCloud();
@@ -24,23 +27,21 @@ export default function Page() {
 
   return (
     <main className="relative h-[100dvh] w-screen overflow-hidden font-sans text-ink">
-      <div
-        className="pointer-events-none fixed inset-0 z-0"
-        style={{ background: 'radial-gradient(120% 90% at 50% 0%, #0d1420 0%, #05070a 55%, #05070a 100%)' }}
-      />
       <BackgroundScene />
-      <div className="pointer-events-none fixed inset-0 z-[1] grain" />
+      <div className="pointer-events-none fixed inset-0 z-[2] grain" />
       <div
         className="pointer-events-none fixed inset-0 z-[2]"
-        style={{ background: 'radial-gradient(ellipse at 50% 0%, transparent 40%, rgba(0,0,0,.55) 100%)' }}
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,.35) 0%, transparent 20%, transparent 65%, rgba(0,0,0,.55) 100%)' }}
       />
 
       <div className="relative z-10 h-full">
         <TopBar onOpenMovies={() => setShowMovies(true)} />
         <LeftRail />
-        <Player />
+        <div className="absolute inset-x-0 bottom-0 z-[15]">
+          <Player />
+          <ChannelBar />
+        </div>
         <PasteUrl />
-        <ChannelBar />
         <MoviePanel open={showMovies} onClose={() => setShowMovies(false)} />
         <Toast />
       </div>

@@ -1,38 +1,40 @@
 'use client';
-import { Waves, Circle, MountainSnow, TreePine, Mountain, CloudRain, Bus, Mic } from 'lucide-react';
+import { Waves, Droplet, Gem, TreePine, Mountain, CloudRain, Sparkles } from 'lucide-react';
 import { useStore } from '@/lib/store';
 
 const SCENES = [
-  { id: 'river',    icon: Waves,        label: 'River'    },
-  { id: 'ocean',    icon: Circle,       label: 'Ocean'    },
-  { id: 'glacier',  icon: MountainSnow, label: 'Glacier'  },
-  { id: 'forest',   icon: TreePine,     label: 'Forest'   },
-  { id: 'mountain', icon: Mountain,     label: 'Mountain' },
-  { id: 'rain',     icon: CloudRain,    label: 'Rain'     },
-];
-const EXTRAS = [
-  { id: 'bus',  icon: Bus, label: 'Bus'  },
-  { id: 'alka', icon: Mic, label: 'Alka' },
+  { id: 'nebula',   icon: Sparkles,  label: 'Nebula'   },
+  { id: 'river',    icon: Waves,     label: 'River'    },
+  { id: 'ocean',    icon: Droplet,   label: 'Ocean'    },
+  { id: 'glacier',  icon: Gem,       label: 'Glacier'  },
+  { id: 'forest',   icon: TreePine,  label: 'Forest'   },
+  { id: 'mountain', icon: Mountain,  label: 'Mountain' },
+  { id: 'rain',     icon: CloudRain, label: 'Rain'     },
 ];
 
-function RailButton({ scene, sceneId, setSceneId }) {
+function RailButton({ scene, active, onClick, vertical }) {
   const Icon = scene.icon;
-  const active = sceneId === scene.id;
   return (
-    <button
-      onClick={() => setSceneId(scene.id)}
-      className="group flex items-center gap-2.5"
-      aria-label={scene.label}
-    >
-      <span className={`grid h-4 w-4 place-items-center transition ${active ? 'text-accent' : 'text-muted group-hover:text-sub'}`}>
-        <Icon size={14} strokeWidth={1.5} />
+    <div className="group relative flex items-center">
+      <button
+        onClick={onClick}
+        className={`grid h-10 w-10 place-items-center rounded-full border transition
+          ${active
+            ? 'border-accent/45 bg-accent/12 text-accent shadow-glow'
+            : 'border-white/[0.08] bg-black/25 text-muted hover:text-sub hover:border-white/[0.16]'}`}
+        aria-label={scene.label}
+      >
+        <Icon size={15} strokeWidth={1.75} />
+      </button>
+      <span
+        className={`pointer-events-none absolute whitespace-nowrap rounded-full border border-white/[0.08] bg-black/80 px-3 py-1.5 text-[11px] text-ink opacity-0 transition-all duration-200
+          ${vertical ? 'left-13 translate-x-[-6px]' : 'top-13 translate-y-[-6px]'}
+          group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0`}
+        style={vertical ? { left: '54px' } : { top: '54px' }}
+      >
+        {scene.label}
       </span>
-      {active && (
-        <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-accent">
-          {scene.label}
-        </span>
-      )}
-    </button>
+    </div>
   );
 }
 
@@ -42,33 +44,16 @@ export default function LeftRail() {
 
   return (
     <>
-      {/* Desktop rail */}
-      <div className="absolute left-6 top-1/2 -translate-y-1/2 z-[15] hidden md:flex flex-col gap-5">
+      <div className="absolute left-6 top-1/2 z-[18] hidden -translate-y-1/2 flex-col gap-3 md:flex">
         {SCENES.map((s) => (
-          <RailButton key={s.id} scene={s} sceneId={sceneId} setSceneId={setSceneId} />
-        ))}
-        <span className="ml-2 h-4 w-px bg-white/[0.08]" />
-        {EXTRAS.map((s) => (
-          <RailButton key={s.id} scene={s} sceneId={sceneId} setSceneId={setSceneId} />
+          <RailButton key={s.id} scene={s} active={sceneId === s.id} onClick={() => setSceneId(s.id)} vertical />
         ))}
       </div>
 
-      {/* Mobile: horizontal scene dots */}
-      <div className="absolute top-[66px] left-0 right-0 z-[15] flex md:hidden justify-center gap-4">
-        {[...SCENES, ...EXTRAS].map((s) => {
-          const Icon = s.icon;
-          const active = sceneId === s.id;
-          return (
-            <button
-              key={s.id}
-              onClick={() => setSceneId(s.id)}
-              className={`${active ? 'text-accent' : 'text-muted'} transition`}
-              aria-label={s.label}
-            >
-              <Icon size={13} strokeWidth={1.5} />
-            </button>
-          );
-        })}
+      <div className="no-scrollbar absolute top-[68px] left-1/2 z-[18] flex -translate-x-1/2 gap-2 overflow-x-auto px-4 md:hidden">
+        {SCENES.map((s) => (
+          <RailButton key={s.id} scene={s} active={sceneId === s.id} onClick={() => setSceneId(s.id)} />
+        ))}
       </div>
     </>
   );

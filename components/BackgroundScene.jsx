@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useMemo } from 'react';
-import * as THREE from 'three';
 import * as storeModule from '@/lib/store';
 import { getChannel } from '@/lib/playlistData';
 
@@ -10,7 +9,13 @@ const useStore =
   storeModule.default?.useStore ||
   storeModule.default;
 
-// ---------- IMAGE ----------
+function useReducedMotion() {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 function ImageBackground({ url }) {
   return (
     <div
@@ -20,420 +25,115 @@ function ImageBackground({ url }) {
   );
 }
 
-// ---------- BUS (realistic AI scene) ----------
-function BusBackground() {
-  return (
-    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-[#1a1208]">
-      {/* Realistic AI bus photo (public/bus.png) with slow cinematic drift */}
-      <div
-        className="absolute inset-0 bus-kenburns bg-cover bg-center"
-        style={{ backgroundImage: "url('/bus.png')" }}
-      />
-      {/* Gradient veil so foreground UI stays readable */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.05) 45%, rgba(0,0,0,0.25))',
-        }}
-      />
-      <style>{`
-        @media (prefers-reduced-motion: no-preference) {
-          .bus-kenburns { animation: busKenBurns 36s ease-in-out infinite; }
-        }
-        @keyframes busKenBurns {
-          0%   { transform: scale(1.05) translate(0, 0); }
-          50%  { transform: scale(1.15) translate(-1.5%, -1%); }
-          100% { transform: scale(1.05) translate(0, 0); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// ---------- ALKA (animated SVG) ----------
-function AlkaBackground() {
-  return (
-    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-      <svg viewBox="0 0 800 600" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1a1208" />
-            <stop offset="100%" stopColor="#6d4c1b" />
-          </linearGradient>
-          <linearGradient id="spotGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ffe9a8" stopOpacity="0.7" />
-            <stop offset="100%" stopColor="#ffe9a8" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <rect width="800" height="600" fill="url(#goldGrad)" />
-        <g className="spotlight">
-          <polygon points="400,-50 220,600 580,600" fill="url(#spotGrad)" />
-        </g>
-        <g transform="translate(400, 430)">
-          <path d="M -45 170 C -45 60, 45 60, 45 170 Z" fill="#120c05" />
-          <circle cx="0" cy="25" r="34" fill="#120c05" />
-          <circle cx="-26" cy="4" r="15" fill="#120c05" />
-          <path d="M 5 70 L 40 35 L 52 8" stroke="#120c05" strokeWidth="14" fill="none" strokeLinecap="round" />
-          <circle cx="56" cy="0" r="11" fill="#3a3a3a" />
-          <rect x="52" y="2" width="7" height="16" fill="#1f1f1f" />
-        </g>
-        <text x="220" y="320" fill="#ffd54f" fontSize="42" className="note n1">♪</text>
-        <text x="600" y="260" fill="#ffd54f" fontSize="58" className="note n2">♫</text>
-        <text x="300" y="160" fill="#ffd54f" fontSize="48" className="note n3">♩</text>
-        <text x="520" y="420" fill="#ffd54f" fontSize="36" className="note n4">♬</text>
-        <style>{`
-          @keyframes sway { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
-          .spotlight { transform-origin: 400px -50px; animation: sway 5s ease-in-out infinite; }
-          @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); opacity: 0.9; } 100% { transform: translateY(-220px) rotate(18deg); opacity: 0; } }
-          .note { animation: floatUp 4s linear infinite; }
-          .n2 { animation-delay: 1s; } .n3 { animation-delay: 2s; } .n4 { animation-delay: 3s; }
-        `}</style>
-      </svg>
-    </div>
-  );
-}
-
-// ---------- WATER SCENE CONFIGS (this is what makes them different) ----------
-const WATER = {
-  river:   { water: 0x0d5c66, bg: 0x03171d, fog: [12, 34], amp: 0.35, freq: 0.55, speed: 1.8, rough: 0.25, metal: 0.2, extras: 'banks' },
-  ocean:   { water: 0x0a3d7a, bg: 0x010a16, fog: [16, 60], amp: 1.15, freq: 0.22, speed: 0.7, rough: 0.35, metal: 0.3, extras: 'moon' },
-  glacier: { water: 0x6fb3c7, bg: 0x0b1a24, fog: [10, 42], amp: 0.5,  freq: 0.35, speed: 0.4, rough: 0.15, metal: 0.1, extras: 'ice' },
+// Each scene: a background wash + one soft glowing horizon line, tinted differently.
+const SCENE_CFG = {
+  river:    { bg: 'radial-gradient(120% 90% at 50% 100%, #0d2a26 0%, #051512 45%, #030808 100%)', line: '#2dd4bf', y: 0.72, amp: 10, particles: null },
+  ocean:    { bg: 'radial-gradient(120% 90% at 50% 0%, #0a1a33 0%, #050c1a 45%, #030509 100%)',   line: '#38bdf8', y: 0.4,  amp: 18, particles: 'stars' },
+  glacier:  { bg: 'radial-gradient(120% 90% at 50% 20%, #10262e 0%, #071319 50%, #04090c 100%)',  line: '#a5f3fc', y: 0.55, amp: 8,  particles: 'snow' },
+  forest:   { bg: 'radial-gradient(120% 90% at 50% 100%, #0e2a16 0%, #061a0d 45%, #030a06 100%)', line: '#4ade80', y: 0.68, amp: 9,  particles: 'fireflies' },
+  mountain: { bg: 'radial-gradient(120% 90% at 50% 100%, #1a2130 0%, #0d1220 45%, #05070c 100%)', line: '#94a3b8', y: 0.6,  amp: 22, particles: 'snow' },
+  rain:     { bg: 'radial-gradient(120% 90% at 50% 0%, #101822 0%, #070b12 45%, #04060a 100%)',   line: '#7dd3fc', y: 0.5,  amp: 7,  particles: 'rain' },
+  nebula:   { bg: 'radial-gradient(120% 100% at 50% 30%, #2a1348 0%, #150a2e 40%, #06040f 100%)', line: '#c084fc', y: 0.45, amp: 14, particles: 'stars' },
 };
-const OTHER_BG = { forest: 0x030a06, mountain: 0x0a0d14, rain: 0x05070c };
 
-// ---------- SHARED WAVE BUILDER ----------
-function waveBuilder(scene, cfg, reducedMotion) {
-  const disposables = []; const meshes = []; const updates = [];
-
-  const geometry = new THREE.PlaneGeometry(26, 26, 80, 80);
-  const material = new THREE.MeshStandardMaterial({
-    color: cfg.water, side: THREE.DoubleSide, flatShading: true,
-    metalness: cfg.metal, roughness: cfg.rough,
-  });
-  const plane = new THREE.Mesh(geometry, material);
-  plane.rotation.x = -Math.PI / 2;
-  scene.add(plane); meshes.push(plane); disposables.push(geometry, material);
-
-  if (cfg.extras === 'banks') {
-    // RIVER: green banks + rocks + teal glow
-    const bankGeo = new THREE.BoxGeometry(5, 1.4, 26);
-    const bankMat = new THREE.MeshStandardMaterial({ color: 0x143826, flatShading: true, roughness: 0.95 });
-    [-13, 13].forEach((x) => {
-      const bank = new THREE.Mesh(bankGeo, bankMat);
-      bank.position.set(x, -0.1, 0);
-      scene.add(bank); meshes.push(bank);
-    });
-    disposables.push(bankGeo, bankMat);
-
-    const rockGeo = new THREE.DodecahedronGeometry(0.5, 0);
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x2a4a44, flatShading: true });
-    for (let i = 0; i < 10; i++) {
-      const rock = new THREE.Mesh(rockGeo, rockMat);
-      rock.position.set((i % 2 === 0 ? -1 : 1) * (9.5 + Math.random() * 2), -0.2, (Math.random() - 0.5) * 22);
-      rock.scale.setScalar(0.5 + Math.random());
-      scene.add(rock); meshes.push(rock);
+function HorizonLine({ cfg }) {
+  const w = 1600, h = 900, yBase = h * cfg.y;
+  const layers = 3;
+  let paths = '';
+  for (let l = 0; l < layers; l++) {
+    const amp = cfg.amp * (1 - l * 0.22);
+    const opacity = (0.5 - l * 0.14).toFixed(2);
+    let d = `M0 ${yBase + l * 18}`;
+    for (let x = 0; x <= w; x += 32) {
+      const y = yBase + l * 18 + Math.sin(x * 0.012 + l * 1.3) * amp;
+      d += ` L${x} ${y.toFixed(1)}`;
     }
-    disposables.push(rockGeo, rockMat);
-
-    const glow = new THREE.PointLight(0x2dd4bf, 1.4, 40);
-    glow.position.set(0, 4, 0);
-    scene.add(glow); meshes.push(glow);
+    paths += `<path d="${d}" fill="none" stroke="${cfg.line}" stroke-width="${1.3 - l * 0.15}" opacity="${opacity}"/>`;
   }
-
-  if (cfg.extras === 'moon') {
-    // OCEAN: moon + cold moonlight
-    const moonGeo = new THREE.SphereGeometry(2.2, 24, 24);
-    const moonMat = new THREE.MeshBasicMaterial({ color: 0xf4f7ff });
-    const moon = new THREE.Mesh(moonGeo, moonMat);
-    moon.position.set(-9, 11, -20);
-    scene.add(moon); meshes.push(moon); disposables.push(moonGeo, moonMat);
-
-    const moonLight = new THREE.DirectionalLight(0x9db4ff, 1.6);
-    moonLight.position.set(-9, 11, -20);
-    scene.add(moonLight); meshes.push(moonLight);
-  }
-
-  if (cfg.extras === 'ice') {
-    // GLACIER: bobbing flat-shaded icebergs + cold light
-    const iceGeo = new THREE.IcosahedronGeometry(1, 0);
-    const iceMat = new THREE.MeshStandardMaterial({
-      color: 0xdfeffb, flatShading: true, roughness: 0.35, metalness: 0.05,
-      emissive: 0x1a3a4a, emissiveIntensity: 0.35,
-    });
-    for (let i = 0; i < 12; i++) {
-      const berg = new THREE.Mesh(iceGeo, iceMat);
-      const s = 0.6 + Math.random() * 1.8;
-      berg.scale.set(s, s * (0.7 + Math.random() * 0.8), s);
-      const baseY = -0.3 + Math.random() * 0.2;
-      berg.position.set((Math.random() - 0.5) * 22, baseY, -2 - Math.random() * 16);
-      berg.rotation.y = Math.random() * Math.PI;
-      scene.add(berg); meshes.push(berg);
-      const phase = Math.random() * Math.PI * 2;
-      updates.push((et) => {
-        berg.position.y = baseY + Math.sin(et * 0.6 + phase) * 0.12;
-        berg.rotation.y += 0.0015;
-      });
-    }
-    disposables.push(iceGeo, iceMat);
-
-    const cold = new THREE.PointLight(0xbfe8ff, 1.2, 45);
-    cold.position.set(0, 6, -6);
-    scene.add(cold); meshes.push(cold);
-  }
-
-  let frameId;
-  const clock = new THREE.Clock();
-  if (!reducedMotion) {
-    const animate = () => {
-      frameId = requestAnimationFrame(animate);
-      const et = clock.getElapsedTime();
-      const t = et * cfg.speed;
-      const p = geometry.attributes.position.array;
-      for (let i = 0; i < p.length; i += 3) {
-        p[i + 2] =
-          Math.sin(p[i] * cfg.freq + t) * cfg.amp +
-          Math.cos(p[i + 1] * cfg.freq * 0.9 + t * 0.8) * cfg.amp;
-      }
-      geometry.attributes.position.needsUpdate = true;
-      geometry.computeVertexNormals();
-      for (let u = 0; u < updates.length; u++) updates[u](et);
-    };
-    animate();
-  }
-
-  return {
-    cleanup: () => {
-      if (frameId) cancelAnimationFrame(frameId);
-      meshes.forEach((m) => scene.remove(m));
-      disposables.forEach((d) => d.dispose && d.dispose());
-    },
-  };
+  const glow = `<ellipse cx="${w / 2}" cy="${yBase}" rx="620" ry="90" fill="${cfg.line}" opacity="0.05" filter="blur(40px)"/>`;
+  const svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">${glow}<g class="horizon-line">${paths}</g></svg>`;
+  return <div className="absolute inset-0" dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
-// ---------- FOREST ----------
-function forestBuilder(scene, reducedMotion) {
-  const disposables = []; const meshes = [];
-
-  const groundGeo = new THREE.PlaneGeometry(40, 40);
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a1a10, roughness: 0.9 });
-  const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2; ground.position.y = -2;
-  scene.add(ground); meshes.push(ground); disposables.push(groundGeo, groundMat);
-
-  const treeGeo = new THREE.ConeGeometry(1, 4, 8);
-  const treeMat = new THREE.MeshStandardMaterial({ color: 0x1b4d2e, flatShading: true });
-  const trees = new THREE.InstancedMesh(treeGeo, treeMat, 180);
-  const m = new THREE.Matrix4();
-  for (let i = 0; i < 180; i++) {
-    const s = 0.5 + Math.random();
-    m.makeScale(s, s, s);
-    m.setPosition((Math.random() - 0.5) * 40, -2 + s * 2, (Math.random() - 0.5) * 40);
-    trees.setMatrixAt(i, m);
-  }
-  scene.add(trees); meshes.push(trees); disposables.push(treeGeo, treeMat);
-
-  const flyGeo = new THREE.BufferGeometry();
-  const fp = new Float32Array(120 * 3);
-  for (let i = 0; i < fp.length; i += 3) {
-    fp[i] = (Math.random() - 0.5) * 30;
-    fp[i + 1] = Math.random() * 5;
-    fp[i + 2] = (Math.random() - 0.5) * 30;
-  }
-  flyGeo.setAttribute('position', new THREE.BufferAttribute(fp, 3));
-  const flyMat = new THREE.PointsMaterial({ color: 0xccff66, size: 0.18, transparent: true, opacity: 0.9 });
-  const flies = new THREE.Points(flyGeo, flyMat);
-  scene.add(flies); meshes.push(flies); disposables.push(flyGeo, flyMat);
-
-  let frameId; const clock = new THREE.Clock();
-  if (!reducedMotion) {
-    const animate = () => {
-      frameId = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
-      const p = flyGeo.attributes.position.array;
-      for (let i = 0; i < p.length; i += 3) {
-        p[i] += Math.cos(t * 2 + i) * 0.006;
-        p[i + 1] += Math.sin(t * 2 + i) * 0.006;
-      }
-      flyGeo.attributes.position.needsUpdate = true;
-    };
-    animate();
-  }
-  return {
-    cleanup: () => {
-      if (frameId) cancelAnimationFrame(frameId);
-      meshes.forEach((x) => scene.remove(x));
-      disposables.forEach((d) => d.dispose && d.dispose());
-    },
-  };
-}
-
-// ---------- MOUNTAIN ----------
-function mountainBuilder(scene, reducedMotion) {
-  const disposables = []; const meshes = [];
-
-  const groundGeo = new THREE.PlaneGeometry(50, 50);
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x1c2230, roughness: 0.95 });
-  const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2; ground.position.y = -2;
-  scene.add(ground); meshes.push(ground); disposables.push(groundGeo, groundMat);
-
-  const peakGeo = new THREE.ConeGeometry(4, 10, 4);
-  const peakMat = new THREE.MeshStandardMaterial({ color: 0x66738c, flatShading: true });
-  for (let i = 0; i < 10; i++) {
-    const peak = new THREE.Mesh(peakGeo, peakMat);
-    peak.position.set((Math.random() - 0.5) * 34, Math.random() * 3, -6 - Math.random() * 14);
-    peak.rotation.y = Math.random() * Math.PI;
-    scene.add(peak); meshes.push(peak);
-  }
-  disposables.push(peakGeo, peakMat);
-
-  const snowGeo = new THREE.BufferGeometry();
-  const sp = new Float32Array(300 * 3);
-  for (let i = 0; i < sp.length; i += 3) {
-    sp[i] = (Math.random() - 0.5) * 40;
-    sp[i + 1] = Math.random() * 20;
-    sp[i + 2] = (Math.random() - 0.5) * 40;
-  }
-  snowGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-  const snowMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.16, transparent: true, opacity: 0.85 });
-  const snow = new THREE.Points(snowGeo, snowMat);
-  scene.add(snow); meshes.push(snow); disposables.push(snowGeo, snowMat);
-
-  let frameId;
-  if (!reducedMotion) {
-    const animate = () => {
-      frameId = requestAnimationFrame(animate);
-      const p = snowGeo.attributes.position.array;
-      for (let i = 0; i < p.length; i += 3) {
-        p[i + 1] -= 0.05;
-        if (p[i + 1] < -2) p[i + 1] = 20;
-      }
-      snowGeo.attributes.position.needsUpdate = true;
-    };
-    animate();
-  }
-  return {
-    cleanup: () => {
-      if (frameId) cancelAnimationFrame(frameId);
-      meshes.forEach((x) => scene.remove(x));
-      disposables.forEach((d) => d.dispose && d.dispose());
-    },
-  };
-}
-
-// ---------- RAIN ----------
-function rainBuilder(scene, reducedMotion) {
-  const disposables = []; const meshes = [];
-
-  const groundGeo = new THREE.PlaneGeometry(40, 40);
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x10151c, metalness: 0.8, roughness: 0.25 });
-  const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2; ground.position.y = -2;
-  scene.add(ground); meshes.push(ground); disposables.push(groundGeo, groundMat);
-
-  const rainGeo = new THREE.BufferGeometry();
-  const rp = new Float32Array(3000 * 3);
-  for (let i = 0; i < rp.length; i += 3) {
-    rp[i] = (Math.random() - 0.5) * 40;
-    rp[i + 1] = Math.random() * 20;
-    rp[i + 2] = (Math.random() - 0.5) * 40;
-  }
-  rainGeo.setAttribute('position', new THREE.BufferAttribute(rp, 3));
-  const rainMat = new THREE.PointsMaterial({ color: 0x9fc3ff, size: 0.06, transparent: true, opacity: 0.7 });
-  const rain = new THREE.Points(rainGeo, rainMat);
-  scene.add(rain); meshes.push(rain); disposables.push(rainGeo, rainMat);
-
-  let frameId;
-  if (!reducedMotion) {
-    const animate = () => {
-      frameId = requestAnimationFrame(animate);
-      const p = rainGeo.attributes.position.array;
-      for (let i = 0; i < p.length; i += 3) {
-        p[i + 1] -= 0.25;
-        if (p[i + 1] < -2) p[i + 1] = 20;
-      }
-      rainGeo.attributes.position.needsUpdate = true;
-    };
-    animate();
-  }
-  return {
-    cleanup: () => {
-      if (frameId) cancelAnimationFrame(frameId);
-      meshes.forEach((x) => scene.remove(x));
-      disposables.forEach((d) => d.dispose && d.dispose());
-    },
-  };
-}
-
-// ---------- THREE CANVAS ----------
-function ThreeCanvas({ sceneId }) {
-  const mountRef = useRef(null);
-  const reduced = typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function Particles({ type, color }) {
+  const ref = useRef(null);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount) return;
+    if (reduced) return;
+    const canvas = ref.current;
+    const ctx = canvas.getContext('2d');
+    let w, h, raf;
 
-    const wcfg = WATER[sceneId];
-    const scene = new THREE.Scene();
-    const bg = new THREE.Color(wcfg ? wcfg.bg : (OTHER_BG[sceneId] || 0x04070c));
-    scene.background = bg;
-    const fogDist = wcfg ? wcfg.fog : [14, 45];
-    scene.fog = new THREE.Fog(bg, fogDist[0], fogDist[1]);
-
-    const camera = new THREE.PerspectiveCamera(60, mount.clientWidth / mount.clientHeight, 0.1, 1000);
-    camera.position.set(0, 5, 15);
-    camera.lookAt(0, 0, 0);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(mount.clientWidth, mount.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    mount.appendChild(renderer.domElement);
-
-    const hemi = new THREE.HemisphereLight(0xbfd8ff, 0x0a0f14, 1.0);
-    const dir = new THREE.DirectionalLight(0xffffff, 1.6);
-    dir.position.set(6, 10, 4);
-    scene.add(hemi, dir);
-
-    let builderCleanup;
-    switch (sceneId) {
-      case 'river':
-      case 'ocean':
-      case 'glacier':
-        builderCleanup = waveBuilder(scene, WATER[sceneId], reduced).cleanup; break;
-      case 'forest':   builderCleanup = forestBuilder(scene, reduced).cleanup; break;
-      case 'mountain': builderCleanup = mountainBuilder(scene, reduced).cleanup; break;
-      case 'rain':     builderCleanup = rainBuilder(scene, reduced).cleanup; break;
-      default:         builderCleanup = waveBuilder(scene, WATER.river, reduced).cleanup; break;
-    }
-
-    let frameId;
-    const loop = () => { frameId = requestAnimationFrame(loop); renderer.render(scene, camera); };
-    loop();
-
-    const onResize = () => {
-      const w = mount.clientWidth, h = mount.clientHeight;
-      camera.aspect = w / h; camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+    // Read the canvas's actual rendered box size (not just once on mount —
+    // a ResizeObserver catches cases where the fixed-position parent hasn't
+    // finished laying out yet, which previously left the canvas locked to a
+    // stale/partial size and made particles bunch into one corner).
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      w = canvas.width = Math.max(1, Math.round(rect.width));
+      h = canvas.height = Math.max(1, Math.round(rect.height));
     };
-    window.addEventListener('resize', onResize);
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    window.addEventListener('resize', resize);
 
-    return () => {
-      window.removeEventListener('resize', onResize);
-      cancelAnimationFrame(frameId);
-      builderCleanup && builderCleanup();
-      scene.remove(hemi, dir);
-      renderer.dispose();
-      if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
+    const count = type === 'rain' ? 120 : type === 'stars' ? 70 : type === 'snow' ? 70 : 30;
+    const parts = Array.from({ length: count }, () => ({
+      x: Math.random() * w, y: Math.random() * h,
+      r: type === 'stars' ? 0.6 + Math.random() * 1.2 : type === 'snow' ? 1 + Math.random() * 1.8 : type === 'fireflies' ? 1.3 + Math.random() * 1.3 : 0,
+      len: type === 'rain' ? 9 + Math.random() * 12 : 0,
+      speed: type === 'rain' ? 6 + Math.random() * 5 : type === 'snow' ? 0.35 + Math.random() * 0.5 : 0.12 + Math.random() * 0.16,
+      phase: Math.random() * Math.PI * 2,
+      drift: (Math.random() - 0.5) * 0.3,
+    }));
+
+    const draw = () => {
+      ctx.clearRect(0, 0, w, h);
+      const t = performance.now() / 1000;
+      parts.forEach((p) => {
+        if (type === 'rain') {
+          ctx.strokeStyle = 'rgba(200,220,255,0.55)'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 3, p.y + p.len); ctx.stroke();
+          p.y += p.speed; if (p.y > h) { p.y = -p.len; p.x = Math.random() * w; }
+        } else if (type === 'snow') {
+          ctx.fillStyle = 'rgba(255,255,255,0.8)';
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+          p.y += p.speed; p.x += Math.sin(t + p.phase) * 0.25;
+          if (p.y > h) { p.y = -4; p.x = Math.random() * w; }
+        } else if (type === 'stars') {
+          const tw = 0.35 + Math.sin(t * 1.1 + p.phase) * 0.35;
+          ctx.fillStyle = `${color}`; ctx.globalAlpha = Math.max(0.15, tw);
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+        } else {
+          const glow = Math.max(0.08, 0.4 + Math.sin(t * 1.4 + p.phase) * 0.4);
+          ctx.fillStyle = `rgba(220,255,150,${glow})`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+          p.x += p.drift; p.y += Math.sin(t + p.phase) * 0.12;
+          if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+        }
+      });
+      raf = requestAnimationFrame(draw);
     };
-  }, [sceneId, reduced]);
+    draw();
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); window.removeEventListener('resize', resize); };
+  }, [type, color, reduced]);
 
-  return <div ref={mountRef} className="fixed inset-0 z-0 pointer-events-none" />;
+  return <canvas ref={ref} className="absolute inset-0 block h-full w-full" />;
 }
 
-// ---------- MAIN ----------
+function AmbientScene({ sceneId }) {
+  const cfg = SCENE_CFG[sceneId] || SCENE_CFG.river;
+  return (
+    <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none" style={{ background: cfg.bg }}>
+      <HorizonLine cfg={cfg} />
+      {cfg.particles && <Particles type={cfg.particles} color={cfg.line} />}
+    </div>
+  );
+}
+
 export default function BackgroundScene() {
   const { sceneId, bgMode, customBg, currentChannelId } = useStore();
   const channel = useMemo(
@@ -443,7 +143,5 @@ export default function BackgroundScene() {
 
   if (bgMode === 'image' && customBg) return <ImageBackground url={customBg} />;
   if (channel && channel.bg) return <ImageBackground url={channel.bg} />;
-  if (sceneId === 'bus') return <BusBackground />;
-  if (sceneId === 'alka') return <AlkaBackground />;
-  return <ThreeCanvas sceneId={sceneId} />;
+  return <AmbientScene sceneId={sceneId} />;
 }
